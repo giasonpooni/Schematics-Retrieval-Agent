@@ -1,0 +1,26 @@
+[project]
+name = "schematics-retrieval-agent"
+version = "0.1.0"
+description = "Function-graph and factor-graph schematics retrieval for observer setup. Eligibility routing only; companion kernels own A, V, samples, and dispositions."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+sra = "schematics.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/schematics"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
