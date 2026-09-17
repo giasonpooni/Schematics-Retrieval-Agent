@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .adapters.jspt import call_jacobian_at, call_perturbation_sweep
+from .adapters.jspt import call_coordinate_consistency, call_jacobian_at, call_perturbation_sweep
+from .adapters.plsr import call_evaluate
 from .adapters.rci import bind_digest
 from .annotate import apply_decision, observer_next_step, set_observer_status
 from .eligibility import Decision, decide
@@ -23,7 +24,14 @@ class AgentReport:
     next_step: str = ""
 
 
-def run(schematic: Schematic, *, attach_fixture_A: bool = False, call_jspt: bool = False, rci_digest: str | None = None) -> AgentReport:
+def _drop_stale_lyapunov(schematic: Schematic, function_id: str) -> None:
+    stale = f"cert:lyapunov:{function_id}"
+    if stale in schematic.nodes and schematic.node(stale).get("result") == Status.NOT_ELIGIBLE.value:
+        del schematic.nodes[stale]
+        schematic.edges = [e for e in schematic.edges if e.src != stale and e.dst != stale]
+
+
+def run(schematic: Schematic, *, attach_fixture_A: bool = False, call_jspt: bool = False, call_plsr: bool = False, rci_digest: str | None = None) -> AgentReport:
     require(schematic)
     decisions = decide(schematic)
     events = plan(decisions)
@@ -45,14 +53,17 @@ def run(schematic: Schematic, *, attach_fixture_A: bool = False, call_jspt: bool
                 events.append(call_jacobian_at(schematic, decision.node_id))
             if decision.tool == "jspt.sweep_perturbation_scale" and decision.status is Status.ELIGIBLE:
                 events.append(call_perturbation_sweep(schematic, decision.node_id))
+            if decision.tool == "jspt.check_coordinate_consistency" and decision.status is Status.ELIGIBLE:
+                events.append(call_coordinate_consistency(schematic, decision.node_id))
         for node in by_kind(schematic, NodeKind.FUNCTION):
             cert = f"cert:jspt:{node.id}"
             if cert in schematic.nodes and schematic.node(cert).get("fixture") is False:
                 if schematic.node(cert).get("result") == Status.SAMPLED.value:
-                    stale = f"cert:lyapunov:{node.id}"
-                    if stale in schematic.nodes and schematic.node(stale).get("result") == Status.NOT_ELIGIBLE.value:
-                        del schematic.nodes[stale]
-                        schematic.edges = [e for e in schematic.edges if e.src != stale and e.dst != stale]
+                    _drop_stale_lyapunov(schematic, node.id)
+    if call_plsr:
+        for decision in decide(schematic):
+            if decision.tool == "lyapunov.evaluate" and decision.status is Status.ELIGIBLE:
+                events.append(call_evaluate(schematic, decision.node_id))
     decisions = decide(schematic)
     blankets = {n.id: blanket(schematic, n.id) for n in by_kind(schematic, NodeKind.VARIABLE)}
     next_step = observer_next_step(schematic)
