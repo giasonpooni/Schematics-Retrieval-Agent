@@ -1,19 +1,19 @@
 # Handoff
 
-v0.3.0 adds a pinned PLSR adapter and a coordinate-consistency gate.
+v0.4.0 hangs local_structure on a function after a non-fixture sampled A.
 
 Rules now enforced in code:
 
-- Fixture A never opens lyapunov.evaluate.
-- PLSR takes A as an array through plant_from_jacobian. It does not form J.
-- Missing lyapunov is NOT_CHECKED, not a certificate.
-- jspt.check_coordinate_consistency is eligible only when a non-identity chart declares chart_T and chart_S.
+- Fixture A never opens PLSR or jspt.local_structure.
+- rank and invisible are JSPT structure at x_star.
+- They are not Kalman observability, identifiability, or a Lyapunov certificate.
+- Missing sensitivity is NOT_CHECKED.
 
 Still open:
 
 1. Live sensitivity / lyapunov CI extra against the pinned SHAs.
-2. Hang local_structure (rank / ker J) on the function node after A.
-3. Richer USDA compile from hand-authored scenes that are not SRA projections.
-4. Field RCI records.
+2. Richer USDA compile from hand-authored scenes that are not SRA projections.
+3. Field RCI records.
+4. Optional first-order covariance when a Sigma is declared on the factor graph.
 
 Do not start a search service.
