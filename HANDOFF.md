@@ -1,19 +1,19 @@
 # Handoff
 
-v0.4.0 hangs local_structure on a function after a non-fixture sampled A.
+v0.5.0 adds first-order covariance when sigma_x is declared on the function.
 
 Rules now enforced in code:
 
-- Fixture A never opens PLSR or jspt.local_structure.
-- rank and invisible are JSPT structure at x_star.
-- They are not Kalman observability, identifiability, or a Lyapunov certificate.
-- Missing sensitivity is NOT_CHECKED.
+- Do not invent Sigma_x from units, sensor names, or USD proximity.
+- Fixture A never opens covariance, structure, or PLSR.
+- Sigma_y ~ J Sigma_x J^T is exact only for affine maps.
+- Nonlinear maps inherit the first-order remainder. Monte Carlo stays in JSPT.
 
 Still open:
 
 1. Live sensitivity / lyapunov CI extra against the pinned SHAs.
 2. Richer USDA compile from hand-authored scenes that are not SRA projections.
 3. Field RCI records.
-4. Optional first-order covariance when a Sigma is declared on the factor graph.
+4. Optional Monte Carlo gap as a separate experiment flag, not a default.
 
 Do not start a search service.
