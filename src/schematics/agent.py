@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .adapters.chart import call_coordinate_consistency
+from .adapters.covariance import call_first_order_covariance
 from .adapters.jspt import call_jacobian_at, call_perturbation_sweep
 from .adapters.plsr import call_evaluate
 from .adapters.rci import bind_digest
@@ -46,9 +47,7 @@ def run(schematic: Schematic, *, attach_fixture_A: bool = False, call_jspt: bool
         for node in by_kind(schematic, NodeKind.FUNCTION):
             if node.get("model_ref") == "jspt.reference.quadratic_drag":
                 from .fixtures import fixture_A_at_xstar
-                c = float(node.get("c", 0.5))
-                x_star = float(node.get("x_star")[0])
-                events.append(attach_fixture_linearization(schematic, node.id, A=fixture_A_at_xstar(c, x_star), validity_radius=0.02))
+                events.append(attach_fixture_linearization(schematic, node.id, A=fixture_A_at_xstar(float(node.get("c", 0.5)), float(node.get("x_star")[0])), validity_radius=0.02))
     if call_jspt:
         for decision in decide(schematic):
             if decision.tool == "jspt.jacobian_at" and decision.status is Status.ELIGIBLE:
@@ -59,12 +58,13 @@ def run(schematic: Schematic, *, attach_fixture_A: bool = False, call_jspt: bool
                 events.append(call_coordinate_consistency(schematic, decision.node_id))
         for node in by_kind(schematic, NodeKind.FUNCTION):
             cert = f"cert:jspt:{node.id}"
-            if cert in schematic.nodes and schematic.node(cert).get("fixture") is False:
-                if schematic.node(cert).get("result") == Status.SAMPLED.value:
-                    _drop_stale_lyapunov(schematic, node.id)
+            if cert in schematic.nodes and schematic.node(cert).get("fixture") is False and schematic.node(cert).get("result") == Status.SAMPLED.value:
+                _drop_stale_lyapunov(schematic, node.id)
     for decision in decide(schematic):
         if decision.tool == "jspt.local_structure" and decision.status is Status.ELIGIBLE:
             events.append(call_local_structure(schematic, decision.node_id))
+        if decision.tool == "jspt.first_order_covariance" and decision.status is Status.ELIGIBLE:
+            events.append(call_first_order_covariance(schematic, decision.node_id))
     if call_plsr:
         for decision in decide(schematic):
             if decision.tool == "lyapunov.evaluate" and decision.status is Status.ELIGIBLE:
