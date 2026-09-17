@@ -63,8 +63,10 @@ def decisions_for_function(schematic: Schematic, node: Node) -> list[Decision]:
     else:
         out.append(Decision(tool="jspt.check_coordinate_consistency", owner="jspt", status=Status.NOT_ELIGIBLE, node_id=node.id, reason="identity chart or missing T,S; no transport to check"))
     if _written_A(schematic, node.id) is not None:
+        out.append(Decision(tool="jspt.local_structure", owner="jspt", status=Status.ELIGIBLE, node_id=node.id, reason="non-fixture A present; rank and ker J are JSPT structure, not an observer claim"))
         out.append(Decision(tool="lyapunov.evaluate", owner="plsr", status=Status.ELIGIBLE, node_id=node.id, reason="non-fixture JSPT certificate wrote A; PLSR may evaluate V"))
     else:
+        out.append(Decision(tool="jspt.local_structure", owner="jspt", status=Status.NOT_ELIGIBLE, node_id=node.id, reason="no non-fixture sampled JSPT A on this function"))
         out.append(Decision(tool="lyapunov.evaluate", owner="plsr", status=Status.NOT_ELIGIBLE, node_id=node.id, reason="no non-fixture sampled JSPT A on this function"))
     return out
 
