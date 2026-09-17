@@ -32,3 +32,19 @@ jobs:
         run: uv build --python ${{ matrix.python }}
       - name: Run default suite
         run: uv run --python ${{ matrix.python }} --dev pytest -q
+
+  kernels:
+    name: pinned kernels
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: "0.10.10"
+      - name: Install pinned extras
+        run: uv pip install --python 3.13 --system -e ".[kernels]"
+      - name: Import companion contracts
+        run: python -c "import sensitivity, lyapunov, instrument_chain; print(sensitivity.__name__, lyapunov.__name__, instrument_chain.__name__)"
+      - name: Run live kernel tests
+        run: uv run --python 3.13 --dev pytest -q -m live
