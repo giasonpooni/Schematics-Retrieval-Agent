@@ -8,6 +8,7 @@ from .adapters.chart import call_coordinate_consistency
 from .adapters.jspt import call_jacobian_at, call_perturbation_sweep
 from .adapters.plsr import call_evaluate
 from .adapters.rci import bind_digest
+from .adapters.structure import call_local_structure
 from .annotate import apply_decision, observer_next_step, set_observer_status
 from .eligibility import Decision, decide
 from .ir import NodeKind, Schematic, Status
@@ -61,6 +62,9 @@ def run(schematic: Schematic, *, attach_fixture_A: bool = False, call_jspt: bool
             if cert in schematic.nodes and schematic.node(cert).get("fixture") is False:
                 if schematic.node(cert).get("result") == Status.SAMPLED.value:
                     _drop_stale_lyapunov(schematic, node.id)
+    for decision in decide(schematic):
+        if decision.tool == "jspt.local_structure" and decision.status is Status.ELIGIBLE:
+            events.append(call_local_structure(schematic, decision.node_id))
     if call_plsr:
         for decision in decide(schematic):
             if decision.tool == "lyapunov.evaluate" and decision.status is Status.ELIGIBLE:
