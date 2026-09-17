@@ -56,6 +56,12 @@ def decisions_for_function(schematic: Schematic, node: Node) -> list[Decision]:
         out.append(Decision(tool="jspt.jacobian_at", owner="jspt", status=Status.ELIGIBLE, node_id=node.id, reason=f"declared {klass} map with model_ref and x_star"))
         if klass in {PlantClass.NONLINEAR.value, PlantClass.LINEAR.value, PlantClass.LPV.value}:
             out.append(Decision(tool="jspt.sweep_perturbation_scale", owner="jspt", status=Status.ELIGIBLE, node_id=node.id, reason="local validity is a JSPT experiment, not a schematic color"))
+    chart = node.get("chart", "identity")
+    has_chart = chart not in {None, "identity"} and node.get("chart_T") is not None and node.get("chart_S") is not None
+    if has_chart and _has_model(node) and _has_xstar(node):
+        out.append(Decision(tool="jspt.check_coordinate_consistency", owner="jspt", status=Status.ELIGIBLE, node_id=node.id, reason="declared non-identity chart with T,S; physical pushforward is the invariant"))
+    else:
+        out.append(Decision(tool="jspt.check_coordinate_consistency", owner="jspt", status=Status.NOT_ELIGIBLE, node_id=node.id, reason="identity chart or missing T,S; no transport to check"))
     if _written_A(schematic, node.id) is not None:
         out.append(Decision(tool="lyapunov.evaluate", owner="plsr", status=Status.ELIGIBLE, node_id=node.id, reason="non-fixture JSPT certificate wrote A; PLSR may evaluate V"))
     else:
