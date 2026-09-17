@@ -1,0 +1,94 @@
+"""Tool authorization is a table on declared nodes. Not a prompt."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from .ir import EdgeKind, Node, NodeKind, PlantClass, Schematic, Status
+
+
+@dataclass(frozen=True)
+class Decision:
+    tool: str
+    owner: str
+    status: Status
+    node_id: str
+    reason: str
+
+
+def _class(node: Node) -> str:
+    return str(node.get("class", PlantClass.UNKNOWN.value))
+
+
+def _has_model(node: Node) -> bool:
+    ref = node.get("model_ref")
+    return isinstance(ref, str) and bool(ref.strip())
+
+
+def _has_xstar(node: Node) -> bool:
+    return node.get("x_star") is not None
+
+
+def _written_A(schematic: Schematic, function_id: str) -> Node | None:
+    for edge in schematic.in_edges(function_id, EdgeKind.LINEARIZES):
+        cert = schematic.node(edge.src)
+        if cert.get("owner") == "jspt" and cert.get("result") == Status.SAMPLED.value:
+            if cert.get("fixture") is True:
+                continue
+            if cert.get("A") is not None:
+                return cert
+    return None
+
+
+def _digest(node: Node) -> bool:
+    digest = node.get("rci_digest")
+    return isinstance(digest, str) and bool(digest.strip())
+
+
+def decisions_for_function(schematic: Schematic, node: Node) -> list[Decision]:
+    out: list[Decision] = []
+    klass = _class(node)
+    if not _has_model(node) or klass == PlantClass.UNKNOWN.value:
+        out.append(Decision(tool="jspt.jacobian_at", owner="jspt", status=Status.NOT_ELIGIBLE, node_id=node.id, reason="no declared model_ref or class is unknown"))
+    elif not _has_xstar(node):
+        out.append(Decision(tool="jspt.jacobian_at", owner="jspt", status=Status.NOT_ELIGIBLE, node_id=node.id, reason="nonlinear/linear map declared but x_star missing"))
+    else:
+        out.append(Decision(tool="jspt.jacobian_at", owner="jspt", status=Status.ELIGIBLE, node_id=node.id, reason=f"declared {klass} map with model_ref and x_star"))
+        if klass in {PlantClass.NONLINEAR.value, PlantClass.LINEAR.value, PlantClass.LPV.value}:
+            out.append(Decision(tool="jspt.sweep_perturbation_scale", owner="jspt", status=Status.ELIGIBLE, node_id=node.id, reason="local validity is a JSPT experiment, not a schematic color"))
+    if _written_A(schematic, node.id) is not None:
+        out.append(Decision(tool="lyapunov.evaluate", owner="plsr", status=Status.ELIGIBLE, node_id=node.id, reason="non-fixture JSPT certificate wrote A; PLSR may evaluate V"))
+    else:
+        out.append(Decision(tool="lyapunov.evaluate", owner="plsr", status=Status.NOT_ELIGIBLE, node_id=node.id, reason="no non-fixture sampled JSPT A on this function"))
+    return out
+
+
+def decisions_for_measurement(node: Node) -> list[Decision]:
+    if _digest(node):
+        return [Decision(tool="rci.bind", owner="rci", status=Status.ELIGIBLE, node_id=node.id, reason="measurement carries an RCI digest")]
+    return [Decision(tool="rci.bind", owner="rci", status=Status.NOT_ELIGIBLE, node_id=node.id, reason="measurement has no rci_digest; do not invent a sample")]
+
+
+def decisions_for_constraint(node: Node) -> list[Decision]:
+    if node.get("intent") and node.get("evidence"):
+        return [Decision(tool="cse.dispose", owner="cse", status=Status.ELIGIBLE, node_id=node.id, reason="intent and evidence declared; CSE owns the disposition")]
+    return [Decision(tool="cse.dispose", owner="cse", status=Status.NOT_ELIGIBLE, node_id=node.id, reason="constraint missing intent or evidence")]
+
+
+def decide(schematic: Schematic) -> list[Decision]:
+    found: list[Decision] = []
+    for node in schematic.nodes.values():
+        if node.kind is NodeKind.FUNCTION:
+            found.extend(decisions_for_function(schematic, node))
+        elif node.kind is NodeKind.MEASUREMENT:
+            found.extend(decisions_for_measurement(node))
+        elif node.kind is NodeKind.CONSTRAINT:
+            found.extend(decisions_for_constraint(node))
+    return found
+
+
+def eligible(schematic: Schematic, tool: str | None = None) -> list[Decision]:
+    rows = [d for d in decide(schematic) if d.status is Status.ELIGIBLE]
+    if tool is not None:
+        rows = [d for d in rows if d.tool == tool]
+    return rows
