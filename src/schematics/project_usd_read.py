@@ -46,4 +46,9 @@ def read_usda(text: str) -> Schematic:
         if src_id not in sch.nodes or dst_id not in sch.nodes:
             raise ValueError(f"UNRESOLVED: edge {kind_s} {src}->{dst} missing endpoint")
         sch.connect(edge, src_id, dst_id)
+    kinds = {n.kind.value for n in sch.nodes.values()}
+    if "function" not in kinds:
+        raise ValueError("UNRESOLVED: authored USDA has no function node")
+    if "variable" not in kinds:
+        raise ValueError("UNRESOLVED: authored USDA has no port / variable")
     return require(sch)
