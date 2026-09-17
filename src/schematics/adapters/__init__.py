@@ -1,6 +1,7 @@
 """Lazy, one-way wrappers around companion kernels."""
 
-from .jspt import call_coordinate_consistency, call_jacobian_at, call_perturbation_sweep, load_sensitivity
+from .chart import call_coordinate_consistency
+from .jspt import call_jacobian_at, call_perturbation_sweep, load_sensitivity
 from .plsr import call_evaluate, load_lyapunov
 from .rci import bind_digest
 
